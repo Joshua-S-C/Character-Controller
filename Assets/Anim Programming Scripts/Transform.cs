@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using UnityEditor.Experimental.GraphView;
 
 namespace NyteshadeGodot.Modules.Maths
 {
@@ -98,6 +99,20 @@ namespace NyteshadeGodot.Modules.Maths
             {
                 return localMatrix;
             }
+        }
+
+        /// <returns>Nyteshade transform from a Unity Transform</returns>
+        public static Transform UnityToNyteshadeTransform(UnityEngine.Transform transform)
+        {
+            var t = new Transform
+            {
+                Name = transform.name,
+                Position = new Vector3(transform.transform.position.x, transform.transform.position.y, transform.transform.position.z),
+                Rotation = new Quaternion(transform.transform.rotation.x, transform.transform.rotation.y, transform.transform.rotation.z, transform.transform.rotation.w),
+                Scale = new Vector3(transform.transform.localScale.x, transform.transform.localScale.y, transform.transform.localScale.z)
+            };
+
+            return t;
         }
     }
 }

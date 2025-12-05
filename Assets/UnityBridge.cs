@@ -12,7 +12,7 @@ namespace Nyteshade.Modules.Anim
     public static class UnityBridge
     {
         // ─────────────────────────────────────────────
-        // Recursive Node Utilities
+        // Recursive obj Utilities
         // ─────────────────────────────────────────────
         public static AnimationPlayer FindAnimationPlayerRecursive(GameObject gameObject)
         {
@@ -30,31 +30,22 @@ namespace Nyteshade.Modules.Anim
         }
 
 
-        // Should be able to use built in Transform
+        // Shouldn't need this, just use built in Transform
         // ─────────────────────────────────────────────
         // Skeleton Builders
         // ─────────────────────────────────────────────
-        public static Transform BuildTransformFromUnity(GameObject node)
+        public static Transform BuildTransformFromUnity(GameObject obj)
         {
-            if (node == null)
-                throw new ArgumentNullException(nameof(node));
+            if (obj == null)
+                throw new ArgumentNullException(nameof(obj));
 
-            var t = new Transform
-            {
-                Name = node.name,
-                Position = new Vector3(node.transform.position.x, node.transform.position.y, node.transform.position.z),
-                Rotation = new Quaternion(node.transform.rotation.x, node.transform.rotation.y, node.transform.rotation.z, node.transform.rotation.w),
-                Scale = new Vector3(node.transform.localScale.x, node.transform.localScale.y, node.transform.localScale.z)
-            };
+            Transform t = Transform.UnityToNyteshadeTransform(obj.transform);
 
-            /*foreach (var child in node.GetChildren())
+            foreach (UnityEngine.Transform child in obj.GetComponentsInChildren<UnityEngine.Transform>())
             {
-                if (child is GameObject child3D)
-                {
-                    var childTransform = BuildTransformFromUnity(child3D);
-                    childTransform.SetParent(t);
-                }
-            }*/
+                Transform childTransform = BuildTransformFromUnity(child.gameObject);
+                childTransform.SetParent(t);
+            }
 
             return t;
         }
@@ -80,45 +71,27 @@ namespace Nyteshade.Modules.Anim
             // Build bone transforms
             for (int i = 0; i < unitySkeleton.bones.Length; i++)
             {
-                Transform3D rest = unitySkeleton.GetBoneRest(i);
-                var basis = rest.Basis;
-
-                for (int r = 0; r < 3; r++)
-                {
-                    var vec = basis[r];
-                    if (float.IsNaN(vec.X) || float.IsNaN(vec.Y) || float.IsNaN(vec.Z) ||
-                        (Math.Abs(vec.X) < 1e-6f && Math.Abs(vec.Y) < 1e-6f && Math.Abs(vec.Z) < 1e-6f))
-                    {
-                        if (r == 0) vec = new Vector3(1, 0, 0);
-                        if (r == 1) vec = new Vector3(0, 1, 0);
-                        if (r == 2) vec = new Vector3(0, 0, 1);
-                    }
-                    basis[r] = vec;
-                }
-
-                var pos = new Vector3(rest.Origin.X, rest.Origin.Y, rest.Origin.Z);
-                var gQuat = basis.GetRotationQuaternion();
-                var rot = Quaternion.Normalize(new Quaternion(gQuat.X, gQuat.Y, gQuat.Z, gQuat.W));
-                var gScale = basis.Scale;
-                var scl = new Vector3(
-                    Math.Abs(gScale.X) < 1e-4f ? 1 : gScale.X,
-                    Math.Abs(gScale.Y) < 1e-4f ? 1 : gScale.Y,
-                    Math.Abs(gScale.Z) < 1e-4f ? 1 : gScale.Z
-                );
+                // TODO Bind transform of the bone
+                Transform rest = Transform.UnityToNyteshadeTransform(unitySkeleton.bones[i].transform);
 
                 boneMap[i] = new NyteshadeGodot.Modules.Maths.Transform
                 {
-                    Name = CleanName(unitySkeleton.GetBoneName(i)),
-                    Position = pos,
-                    Rotation = rot,
-                    Scale = scl
+                    Name = rest.Name,
+                    Position = rest.Position,
+                    Rotation = rest.Rotation,
+                    Scale = rest.Scale,
                 };
             }
 
             // Wire up hierarchy
             for (int i = 0; i < unitySkeleton.bones.Length; i++)
             {
-                int parent = unitySkeleton.GetBoneParent(i);
+
+                // TODO 
+
+                boneMap.TryGetValue(unitySkeleton.bones[i].transform.parent.GetInstanceID(), out Transform parent);
+
+
                 if (parent >= 0)
                     boneMap[i].SetParent(boneMap[parent]);
                 else
@@ -137,19 +110,19 @@ namespace Nyteshade.Modules.Anim
             for (int i = 0; i < unitySkeleton.bones.Length; i++)
             {
                 // Find matching index
-                string boneName = CleanName(unitySkeleton.GetBoneName(i));
+                string boneName = CleanName(unitySkeleton.bones[i].name);
                 if (!nameToNyteshadeIndex.TryGetValue(boneName, out int nIdx))
                 {
                     Debug.LogError($"[Bridge] Failed to map Godot bone '{boneName}' (Godot index {i}) to Nyteshade skeleton.");
                     continue;
                 }
 
-                Transform3D rest = unitySkeleton.GetBoneRest(i);
+                Transform rest = unitySkeleton.GetBoneRest(i);
                 var restMatrix = ToNumericsMatrix(rest);
 
                 if (!Matrix4x4.Invert(restMatrix, out Matrix4x4 invBind))
                 {
-                    Debug.LogError($"[Bridge] Failed to invert rest matrix for bone {unitySkeleton.GetBoneName(i)}");
+                    Debug.LogError($"[Bridge] Failed to invert rest matrix for bone {unitySkeleton.bones[i].name}");
                     invBind = Matrix4x4.Identity;
                 }
                 
@@ -169,7 +142,7 @@ namespace Nyteshade.Modules.Anim
             return skeleton;
         }
 
-        private static Matrix4x4 ToNumericsMatrix(Transform3D t)
+        private static Matrix4x4 ToNumericsMatrix(Transform t)
         {
             return new Matrix4x4(
                 t.Basis.X.X, t.Basis.X.Y, t.Basis.X.Z, 0,
@@ -239,9 +212,9 @@ namespace Nyteshade.Modules.Anim
                 }
             }
 
-            // 3. Find the Skeleton3D node *in the animation scene*
-            Skeleton3D animSkeleton = animRoot.GetNodeOrNull<Skeleton3D>("Armature/Skeleton3D") ??
-                                      animRoot.GetNodeOrNull<Skeleton3D>("Skeleton3D");
+            // 3. Find the Skeleton3D obj *in the animation scene*
+            Skeleton3D animSkeleton = animRoot.GetobjOrNull<Skeleton3D>("Armature/Skeleton3D") ??
+                                      animRoot.GetobjOrNull<Skeleton3D>("Skeleton3D");
             
             if (animSkeleton == null)
             {
@@ -253,7 +226,7 @@ namespace Nyteshade.Modules.Anim
             var animBoneNameMap = new Dictionary<string, int>();
             for (int i = 0; i < animSkeleton.bones.Length; i++)
             {
-                animBoneNameMap[CleanName(animSkeleton.GetBoneName(i))] = i;
+                animBoneNameMap[CleanName(animSkeleton.bones[i].name)] = i;
             }
 
             // 5. Compute duration
@@ -294,9 +267,9 @@ namespace Nyteshade.Modules.Anim
                     // Find the matching bone index in the animation's skeleton
                     if (animBoneNameMap.TryGetValue(bone.Name, out int animBoneIndex))
                     {
-                        Transform3D bonePose = animSkeleton.GetBonePose(animBoneIndex);
+                        Transform bonePose = animSkeleton.GetBonePose(animBoneIndex);
 
-                        // Convert Godot Transform3D to our BoneTransform
+                        // Convert Godot Transform to our BoneTransform
                         var gQuat = bonePose.Basis.GetRotationQuaternion();
                         var gScale = bonePose.Basis.Scale;
 
@@ -368,12 +341,12 @@ namespace Nyteshade.Modules.Anim
                 var basis = new Godot.Basis(new Godot.Quaternion(r.X, r.Y, r.Z, r.W))
                     .Scaled(new Godot.Vector3(s.X, s.Y, s.Z));
 
-                var xform = new Godot.Transform3D(basis, new Godot.Vector3(t.X, t.Y, t.Z));
+                var xform = new Godot.Transform(basis, new Godot.Vector3(t.X, t.Y, t.Z));
 
                 if (float.IsNaN(basis.X.X) || MathF.Abs(basis.Determinant()) < 1e-6f)
                 {
                     Debug.LogError($"[WARN] Degenerate matrix for bone {bone.Name}, resetting to identity.");
-                    xform = Godot.Transform3D.Identity;
+                    xform = Godot.Transform.Identity;
                 }
 
                 unitySkeleton.SetBoneGlobalPoseOverride(gidx, xform, 1.0f, false);
