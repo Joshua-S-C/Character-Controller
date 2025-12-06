@@ -1,11 +1,12 @@
-﻿using System;
+﻿using NyteshadeGodot.Modules.Maths;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
-using NyteshadeGodot.Modules.Maths;
 using UnityEngine;
 using Quaternion = System.Numerics.Quaternion;
-using Vector3 = System.Numerics.Vector3;
 using Transform = NyteshadeGodot.Modules.Maths.Transform;
+using Vector3 = System.Numerics.Vector3;
 
 namespace Nyteshade.Modules.Anim
 {
@@ -18,7 +19,7 @@ namespace Nyteshade.Modules.Anim
         {
             return gameObject.GetComponentInChildren<AnimationPlayer>();
         }
-        
+
         public static string CleanName(string name)
         {
             if (name == null) return "";
@@ -49,7 +50,7 @@ namespace Nyteshade.Modules.Anim
 
             return t;
         }
-        
+
         // TODO This is a good amount of the adaptation
         public static Skeleton BuildSkeleton(GameObject root)
         {
@@ -92,44 +93,44 @@ namespace Nyteshade.Modules.Anim
                 boneMap.TryGetValue(unitySkeleton.bones[i].transform.parent.GetInstanceID(), out Transform parent);
 
 
-                if (parent >= 0)
-                    boneMap[i].SetParent(boneMap[parent]);
+                if (parent != null)
+                    boneMap[i].SetParent(parent);
                 else
                     boneMap[i].SetParent(rootTransform);
             }
 
             // Create and populate Skeleton
             var skeleton = new Skeleton(rootTransform);
-            
+
             var nameToNyteshadeIndex = new Dictionary<string, int>(skeleton.BoneCount);
             for (int nIdx = 0; nIdx < skeleton.BoneCount; nIdx++)
             {
                 nameToNyteshadeIndex[skeleton.GetBone(nIdx).Name] = nIdx;
             }
-            
+
             for (int i = 0; i < unitySkeleton.bones.Length; i++)
             {
                 // Find matching index
                 string boneName = CleanName(unitySkeleton.bones[i].name);
                 if (!nameToNyteshadeIndex.TryGetValue(boneName, out int nIdx))
                 {
-                    Debug.LogError($"[Bridge] Failed to map Godot bone '{boneName}' (Godot index {i}) to Nyteshade skeleton.");
+                    Debug.LogError($"[Bridge] Failed to map bone '{boneName}' (Index {i}) to Nyteshade skeleton.");
                     continue;
                 }
 
-                Transform rest = unitySkeleton.GetBoneRest(i);
+                UnityEngine.Matrix4x4 rest = unitySkeleton.sharedMesh.bindposes[i];
                 var restMatrix = ToNumericsMatrix(rest);
 
-                if (!Matrix4x4.Invert(restMatrix, out Matrix4x4 invBind))
+                if (!System.Numerics.Matrix4x4.Invert(restMatrix, out System.Numerics.Matrix4x4 invBind))
                 {
                     Debug.LogError($"[Bridge] Failed to invert rest matrix for bone {unitySkeleton.bones[i].name}");
-                    invBind = Matrix4x4.Identity;
+                    invBind = System.Numerics.Matrix4x4.Identity;
                 }
-                
+
                 skeleton.InverseBindMatrices[nIdx] = invBind;
 
                 var t = boneMap[i];
-                
+
                 skeleton.BasePose.LocalTransforms[nIdx] = new BoneTransform
                 {
                     Translation = t.Position,
@@ -142,13 +143,13 @@ namespace Nyteshade.Modules.Anim
             return skeleton;
         }
 
-        private static Matrix4x4 ToNumericsMatrix(Transform t)
+        private static System.Numerics.Matrix4x4 ToNumericsMatrix(UnityEngine.Matrix4x4 m)
         {
-            return new Matrix4x4(
-                t.Basis.X.X, t.Basis.X.Y, t.Basis.X.Z, 0,
-                t.Basis.Y.X, t.Basis.Y.Y, t.Basis.Y.Z, 0,
-                t.Basis.Z.X, t.Basis.Z.Y, t.Basis.Z.Z, 0,
-                t.Origin.X,  t.Origin.Y,  t.Origin.Z,  1
+            return new System.Numerics.Matrix4x4(
+                m.m00, m.m01, m.m02, m.m03,
+                m.m10, m.m11, m.m12, m.m13,
+                m.m20, m.m21, m.m22, m.m23,
+                m.m30, m.m31, m.m32, m.m33
             );
         }
 
@@ -157,152 +158,137 @@ namespace Nyteshade.Modules.Anim
         // ─────────────────────────────────────────────
         // Cross-Armature Animation Baking
         // ─────────────────────────────────────────────
-        
-        public static AnimationClip BuildClipFromAnimationPlayer(
-            GameObject animRoot,
-            Skeleton targetSkeleton,
-            string animName = "Idle",
-            float frameRate = 30f)
+
+        public static AnimationClip BuildClipFromFbx(
+    GameObject animRoot,
+    Skeleton targetSkeleton,
+    float frameRate = 30f,
+    string animName = null)
         {
             if (animRoot == null)
                 throw new ArgumentNullException(nameof(animRoot));
             if (targetSkeleton == null)
                 throw new ArgumentNullException(nameof(targetSkeleton));
 
-            // 1. Find AnimationPlayer
-            var animPlayer = FindAnimationPlayerRecursive(animRoot);
-            if (animPlayer == null)
+            // ---------------------------------------
+            // 1. Locate Unity AnimationClips
+            // ---------------------------------------
+            var animator = animRoot.GetComponentInChildren<Animator>();
+            if (animator == null)
             {
-                Debug.LogError("[Bridge] No AnimationPlayer found in animation GLB!");
+                Debug.LogError("[Bridge] No Animator found in FBX!");
                 return new AnimationClip();
             }
 
-            // 2. Find Animation
-            var animNames = animPlayer.GetAnimationList();
-            Animation anim = null;
-            Debug.Log($"[Bridge] Available animations ({animNames.Length}):");
-            foreach (var name in animNames) Debug.Log($"  - {name}");
-
-            if (!string.IsNullOrEmpty(animName) && animPlayer.HasAnimation(animName))
+            RuntimeAnimatorController rac = animator.runtimeAnimatorController;
+            if (rac == null)
             {
-                anim = animPlayer.GetAnimation(animName);
-                Debug.Log($"[Bridge] Using requested animation '{animName}'.");
-            }
-            else
-            {
-                string bestName = null;
-                float bestLength = 0f;
-                Debug.Log($"[Bridge] Fallback: Could not find '{animName}'. Searching for longest anim...");
-                foreach (var name in animNames)
-                {
-                    var a = animPlayer.GetAnimation(name);
-                    if (a.Length > bestLength) { bestName = name; bestLength = a.Length; }
-                }
-
-                if (bestName != null)
-                {
-                    animName = bestName;
-                    anim = animPlayer.GetAnimation(animName);
-                    Debug.Log($"[Bridge] Using longest animation '{animName}' ({anim.Length:F2}s).");
-                }
-                else
-                {
-                    Debug.LogError("[Bridge] No valid animation found!");
-                    return new AnimationClip();
-                }
-            }
-
-            // 3. Find the Skeleton3D obj *in the animation scene*
-            Skeleton3D animSkeleton = animRoot.GetobjOrNull<Skeleton3D>("Armature/Skeleton3D") ??
-                                      animRoot.GetobjOrNull<Skeleton3D>("Skeleton3D");
-            
-            if (animSkeleton == null)
-            {
-                Debug.LogError("[Bridge] No Skeleton3D found in animation scene to sample from!");
+                Debug.LogError("[Bridge] Animator has no controller; FBX must import clips.");
                 return new AnimationClip();
             }
-            
-            // 4. Create a map of (CleanName -> Godot Bone Index) for the animation skeleton
-            var animBoneNameMap = new Dictionary<string, int>();
-            for (int i = 0; i < animSkeleton.bones.Length; i++)
+
+            var unityClips = rac.animationClips;
+            if (unityClips == null || unityClips.Length == 0)
             {
-                animBoneNameMap[CleanName(animSkeleton.bones[i].name)] = i;
+                Debug.LogError("[Bridge] FBX contains no AnimationClips.");
+                return new AnimationClip();
             }
 
-            // 5. Compute duration
-            float duration = anim.Length;
-            if (duration <= 0.001f)
+            // pick requested animation or default
+            UnityEngine.AnimationClip unityClip = null;
+
+            if (!string.IsNullOrEmpty(animName))
             {
-                for (int i = 0; i < anim.GetTrackCount(); i++)
-                {
-                    int keyCount = anim.TrackGetKeyCount(i);
-                    if (keyCount > 0)
-                    {
-                        float lastTime = (float)anim.TrackGetKeyTime(i, keyCount - 1);
-                        if (lastTime > duration) duration = lastTime;
-                    }
-                }
-                if (duration < 1e-3f) duration = 1f;
+                unityClip = unityClips.FirstOrDefault(c => c.name == animName);
             }
 
-            // 6. Bake frames
-            var clip = new AnimationClip();
+            if (unityClip == null)
+            {
+                // fallback — longest clip
+                unityClip = unityClips.OrderByDescending(c => c.length).First();
+                animName = unityClip.name;
+            }
+
+            Debug.Log($"[Bridge] Using FBX AnimationClip: {animName}");
+
+            // ---------------------------------------
+            // 2. Find bones in FBX skeleton
+            // ---------------------------------------
+            var smr = animRoot.GetComponentInChildren<SkinnedMeshRenderer>();
+            if (smr == null)
+            {
+                Debug.LogError("[Bridge] FBX has no SkinnedMeshRenderer → cannot sample skeleton.");
+                return new AnimationClip();
+            }
+
+            UnityEngine.Transform[] animBones = smr.bones;
+
+            // map CleanName → unity bone index
+            var animBoneNameMap = new Dictionary<string, int>(animBones.Length);
+            for (int i = 0; i < animBones.Length; i++)
+            {
+                animBoneNameMap[CleanName(animBones[i].name)] = i;
+            }
+
+            // ---------------------------------------
+            // 3. Prepare sampling
+            // ---------------------------------------
+            float duration = unityClip.length > 0 ? unityClip.length : 1f;
+
+            var bakedClip = new AnimationClip();
             float time = 0f;
 
-            animPlayer.Play(animName);
-            animPlayer.Pause();
+            Animator animatorForSampling = animator;
 
+            // ---------------------------------------
+            // 4. Bake frame-by-frame
+            // ---------------------------------------
             while (time <= duration + (1f / frameRate))
             {
-                animPlayer.Seek(time, true);
-                
-                // This pose must match target skeleton 
-                var absolutePose = new SpatialPose(targetSkeleton.BoneCount); 
+                unityClip.SampleAnimation(animRoot, time);
 
-                // Loop over target skeleton
+                var absolutePose = new SpatialPose(targetSkeleton.BoneCount);
+
+                // Loop through Nyteshade target skeleton
                 for (int i = 0; i < targetSkeleton.BoneCount; i++)
                 {
                     var bone = targetSkeleton.GetBone(i);
-                    
-                    // Find the matching bone index in the animation's skeleton
-                    if (animBoneNameMap.TryGetValue(bone.Name, out int animBoneIndex))
+
+                    // Find matching FBX bone
+                    if (animBoneNameMap.TryGetValue(bone.Name, out int unityBoneIndex))
                     {
-                        Transform bonePose = animSkeleton.GetBonePose(animBoneIndex);
+                        var uBone = animBones[unityBoneIndex];
 
-                        // Convert Godot Transform to our BoneTransform
-                        var gQuat = bonePose.Basis.GetRotationQuaternion();
-                        var gScale = bonePose.Basis.Scale;
-
+                        // Unity transform → BoneTransform
                         var t = new BoneTransform
                         {
-                            Translation = new Vector3(bonePose.Origin.X, bonePose.Origin.Y, bonePose.Origin.Z),
-                            Rotation = Quaternion.Normalize(new Quaternion(gQuat.X, gQuat.Y, gQuat.Z, gQuat.W)),
-                            Scale = new Vector3(
-                                Math.Abs(gScale.X) < 1e-4f ? 1 : gScale.X,
-                                Math.Abs(gScale.Y) < 1e-4f ? 1 : gScale.Y,
-                                Math.Abs(gScale.Z) < 1e-4f ? 1 : gScale.Z
-                            )
+                            Translation = new Vector3(uBone.localPosition.x, uBone.localPosition.y, uBone.localPosition.z),
+                            Rotation = new Quaternion(uBone.localRotation.x, uBone.localRotation.y, uBone.localRotation.z, uBone.localRotation.w),
+                            Scale = new Vector3(uBone.localScale.x, uBone.localScale.y, uBone.localScale.z)
                         };
+
                         absolutePose.LocalTransforms[i] = t;
                     }
                     else
                     {
                         if (bone.Name != "Root")
-                            Debug.Log($"[Bridge] No bone named '{bone.Name}' found in anim skeleton.");
-                        
+                            Debug.Log($"[Bridge] No FBX bone named '{bone.Name}'.");
+
                         absolutePose.LocalTransforms[i] = BoneTransform.Identity;
                     }
                 }
-                
+
+                // Compute delta vs BasePose
                 var deltaPose = SpatialPose.Deconcatenate(absolutePose, targetSkeleton.BasePose);
-                clip.Keyframes.Add(new Keyframe { Time = time, Pose = deltaPose });
+                bakedClip.Keyframes.Add(new Keyframe { Time = time, Pose = deltaPose });
 
                 time += 1f / frameRate;
             }
 
-            clip.SortKeyframes();
-            Debug.Log($"[Bridge] Cross-baked animation '{animName}' as delta poses ({clip.Keyframes.Count} frames, {clip.Duration:F2}s)");
-            return clip;
+            bakedClip.SortKeyframes();
+
+            Debug.Log($"[Bridge] Baked FBX animation '{animName}' ({bakedClip.Keyframes.Count} frames, {bakedClip.Duration:F2}s)");
+            return bakedClip;
         }
 
         // ─────────────────────────────────────────────
@@ -310,48 +296,82 @@ namespace Nyteshade.Modules.Anim
         // ─────────────────────────────────────────────
         public static void ApplyBoneOverridesFromSkeleton(SkinnedMeshRenderer unitySkeleton, Nyteshade.Modules.Anim.Skeleton skeleton)
         {
-            if (unitySkeleton == null || skeleton == null) return;
+            if (!unitySkeleton || skeleton == null)
+                return;
 
-            // Map Godot's cleaned names to its original indices
-            var nameToIndex = new Dictionary<string, int>(unitySkeleton.bones.Length);
-            for (int gi = 0; gi < unitySkeleton.bones.Length; gi++)
+            UnityEngine.Transform[] unityBones = unitySkeleton.bones;
+
+            // Build dictionary from cleaned bone names → Unity bone Transform
+            var nameToUnityBone = new Dictionary<string, UnityEngine.Transform>(unityBones.Length);
+            for (int i = 0; i < unityBones.Length; i++)
             {
-                nameToIndex[CleanName(unitySkeleton.GetBoneName(gi))] = gi;
+                var ub = unityBones[i];
+                if (ub != null)
+                    nameToUnityBone[CleanName(ub.name)] = ub;
             }
 
-            // Loop the skeleton
+            // Loop Nyteshade bones
             for (int i = 0; i < skeleton.BoneCount; i++)
             {
                 var bone = skeleton.GetBone(i);
-                
-                if (!nameToIndex.TryGetValue(bone.Name, out int gidx))
-                    continue; // Skips "Root"
 
+                if (!nameToUnityBone.TryGetValue(bone.Name, out UnityEngine.Transform unityBone))
+                    continue; // skip "Root" or bones not in the renderer
+
+                // Get Nyteshade world transform matrix (System.Numerics.Matrix4x4)
                 var world = bone.GetLocalToWorldMatrix();
-                if (!Matrix4x4.Decompose(world, out var s, out var r, out var t))
+
+                if (!System.Numerics.Matrix4x4.Decompose(world, out var s, out var r, out var t))
                     continue;
 
-                r = Quaternion.Normalize(r);
-                s = new Vector3(
+                // sanitize scale
+                s = new System.Numerics.Vector3(
                     MathF.Max(MathF.Abs(s.X), 1e-4f),
                     MathF.Max(MathF.Abs(s.Y), 1e-4f),
                     MathF.Max(MathF.Abs(s.Z), 1e-4f)
                 );
 
-                var basis = new Godot.Basis(new Godot.Quaternion(r.X, r.Y, r.Z, r.W))
-                    .Scaled(new Godot.Vector3(s.X, s.Y, s.Z));
+                // normalize rotation
+                r = System.Numerics.Quaternion.Normalize(r);
 
-                var xform = new Godot.Transform(basis, new Godot.Vector3(t.X, t.Y, t.Z));
+                // Convert Numerics → Unity
+                UnityEngine.Vector3 unityPos = new UnityEngine.Vector3(t.X, t.Y, t.Z);
+                UnityEngine.Quaternion unityRot = new UnityEngine.Quaternion(r.X, r.Y, r.Z, r.W);
+                UnityEngine.Vector3 unityScale = new UnityEngine.Vector3(s.X, s.Y, s.Z);
 
-                if (float.IsNaN(basis.X.X) || MathF.Abs(basis.Determinant()) < 1e-6f)
-                {
-                    Debug.LogError($"[WARN] Degenerate matrix for bone {bone.Name}, resetting to identity.");
-                    xform = Godot.Transform.Identity;
-                }
-
-                unitySkeleton.SetBoneGlobalPoseOverride(gidx, xform, 1.0f, false);
+                // Apply the world-space pose to the Unity bone
+                SetUnityBoneWorldTRS(unityBone, unityPos, unityRot, unityScale);
             }
         }
-        
+
+        private static void SetUnityBoneWorldTRS(UnityEngine.Transform bone,UnityEngine.Vector3 worldPos,UnityEngine.Quaternion worldRot,UnityEngine.Vector3 worldScale)
+        {
+            UnityEngine.Transform parent = bone.parent;
+
+            if (parent == null)
+            {
+                // Direct world assignment
+                bone.position = worldPos;
+                bone.rotation = worldRot;
+                bone.localScale = worldScale;
+                return;
+            }
+
+            // Convert world → local using the parent
+            bone.localPosition =
+                parent.InverseTransformPoint(worldPos);
+
+            bone.localRotation =
+                UnityEngine.Quaternion.Inverse(parent.rotation) * worldRot;
+
+            // Scale is trickiest: convert world scale → local scale
+            UnityEngine.Vector3 parentScale = parent.lossyScale;
+            bone.localScale = new UnityEngine.Vector3(
+                worldScale.x / (parentScale.x == 0 ? 1 : parentScale.x),
+                worldScale.y / (parentScale.y == 0 ? 1 : parentScale.y),
+                worldScale.z / (parentScale.z == 0 ? 1 : parentScale.z)
+            );
+        }
+
     }
 }
