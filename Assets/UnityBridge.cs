@@ -173,7 +173,7 @@ namespace Nyteshade.Modules.Anim
             // ---------------------------------------
             // 1. Locate Unity AnimationClips
             // ---------------------------------------
-            var animator = animRoot.GetComponentInChildren<Animator>();
+            var animator = animRoot.GetComponentInParent<Animator>();
             if (animator == null)
             {
                 Debug.LogError("[Bridge] No Animator found in FBX!");
@@ -243,7 +243,7 @@ namespace Nyteshade.Modules.Anim
             // ---------------------------------------
             // 4. Bake frame-by-frame
             // ---------------------------------------
-            while (time <= duration + (1f / frameRate))
+            do
             {
                 unityClip.SampleAnimation(animRoot, time);
 
@@ -271,7 +271,7 @@ namespace Nyteshade.Modules.Anim
                     }
                     else
                     {
-                        if (bone.Name != "Root")
+                        if (bone.Name != "mixamorig:Hips")
                             Debug.Log($"[Bridge] No FBX bone named '{bone.Name}'.");
 
                         absolutePose.LocalTransforms[i] = BoneTransform.Identity;
@@ -283,7 +283,7 @@ namespace Nyteshade.Modules.Anim
                 bakedClip.Keyframes.Add(new Keyframe { Time = time, Pose = deltaPose });
 
                 time += 1f / frameRate;
-            }
+            } while (time <= duration + (1f / frameRate));
 
             bakedClip.SortKeyframes();
 

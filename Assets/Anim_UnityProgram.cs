@@ -13,6 +13,7 @@ public partial class Anim_UnityProgram : MonoBehaviour
     private Skeleton _skeleton;
     private Nyteshade.Modules.Anim.AnimationPlayer _player;
     [SerializeField] private GameObject _rigRoot;
+    [SerializeField] private UnityEngine.AnimationClip idle, walk, slowRun, turnLeft, turnRight, jump, dance;
     private MeshSkinner _skinner;
     private SkinnedMeshRenderer _unitySkeleton;
     private bool _isPaused = false;
@@ -47,7 +48,6 @@ public partial class Anim_UnityProgram : MonoBehaviour
     private float _grabWeight = 0.0f; 
     private int _chainSelection = 0;
 
-
     public void Start()
     {
         Debug.Log("=== Nyteshade Animation Runtime Initialized ===");
@@ -72,14 +72,22 @@ public partial class Anim_UnityProgram : MonoBehaviour
 
         // 4. Load Animation Library
         Debug.Log("[Init] Loading animation library...");
-        _animLibrary["Idle"] = LoadClip("res://Assets/Animations/Idle.glb", "mixamo_com");
+        /*_animLibrary["Idle"] = LoadClip("res://Assets/Animations/Idle.glb", "mixamo_com");
         _animLibrary["Walk"] = LoadClip("res://Assets/Animations/Walk.glb", "mixamo_com");
         _animLibrary["Slow_Run"] = LoadClip("res://Assets/Animations/Slow_Run.glb", "mixamo_com");
         _animLibrary["Turn_Left"] = LoadClip("res://Assets/Animations/Turn_Left.glb", "mixamo_com");
         _animLibrary["Turn_Right"] = LoadClip("res://Assets/Animations/Turn_Right.glb", "mixamo_com");
         _animLibrary["Jump"] = LoadClip("res://Assets/Animations/Jump.glb", "mixamo_com");
-        _animLibrary["Dance"] = LoadClip("res://Assets/Animations/Dance.glb", "mixamo_com");
-        
+        _animLibrary["Dance"] = LoadClip("res://Assets/Animations/Dance.glb", "mixamo_com");*/
+
+        _animLibrary["Idle"] = LoadClip(idle);
+        _animLibrary["Walk"] = LoadClip(walk);
+        _animLibrary["Slow_Run"] = LoadClip(slowRun);
+        _animLibrary["Turn_Left"] = LoadClip(turnLeft);
+        _animLibrary["Turn_Right"] = LoadClip(turnRight);
+        _animLibrary["Jump"] = LoadClip(jump);
+        _animLibrary["Dance"] = LoadClip(dance);
+
         Debug.Log($"[Init] Loaded {_animLibrary.Count} animation clips.");
 
         // 5. Initialize player + skinner
@@ -184,20 +192,11 @@ public partial class Anim_UnityProgram : MonoBehaviour
         RebuildLeftArmSolver(_chainSelection); 
     }
     
-    private AnimationClip LoadClip(string filePath, string animNameInFile)
+    private AnimationClip LoadClip(UnityEngine.AnimationClip anim)
     {
-        /*var scene = GD.Load<PackedScene>(filePath);
-        if (scene == null)
-        {
-            Debug.LogError($"[AnimLoader] Failed to load animation scene: {filePath}");
-            return null;
-        }
-        var root = scene.Instantiate<Node3D>();
-        var clip = UnityBridge.BuildClipFromAnimationPlayer(root, _skeleton, animNameInFile, 30f);
-        root.QueueFree();
-        if (clip == null) Debug.LogError($"[AnimLoader] Failed to build clip '{animNameInFile}' from {filePath}");
-        return clip;*/
-        return null;
+        var clip = UnityBridge.BuildClipFromFbx(_rigRoot, _skeleton, 30f, anim.name);
+        if (clip == null) Debug.LogError($"[AnimLoader] Failed to build clip '{anim.name}'");
+        return clip;
     }
 
     public void Update()
@@ -222,7 +221,7 @@ public partial class Anim_UnityProgram : MonoBehaviour
             UpdateAnimationGraph((float)Time.deltaTime); 
 
             // 3. Animation Pass (Ticks the state machine)
-            _player.Update((float)Time.deltaTime); 
+            //_player.ScriptUpdate(Time.deltaTime); 
 
             // 4. IK Pass
             if (_ikManager != null)

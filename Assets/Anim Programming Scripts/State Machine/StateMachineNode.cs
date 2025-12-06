@@ -25,7 +25,7 @@ namespace Nyteshade.Modules.Anim
             _states[name] = state;
         }
 
-        public void Update(float deltaTime)
+        public void ScriptUpdate(float deltaTime)
         {
             // --- 1. Are we currently blending between states? ---
             if (_blendTimer > 0.0f)
@@ -40,8 +40,8 @@ namespace Nyteshade.Modules.Anim
                     _previousState = null;
                 }
 
-                _previousState?.Animation.Update(deltaTime);
-                _currentState.Animation.Update(deltaTime);
+                _previousState?.Animation.ScriptUpdate(deltaTime);
+                _currentState.Animation.ScriptUpdate(deltaTime);
                 return;
             }
             
@@ -82,7 +82,7 @@ namespace Nyteshade.Modules.Anim
             }
             
             // --- 3. If no transition, just update the current state ---
-            _currentState.Animation.Update(deltaTime);
+            _currentState.Animation.ScriptUpdate(deltaTime);
         }
 
         public SpatialPose Evaluate(int boneCount)

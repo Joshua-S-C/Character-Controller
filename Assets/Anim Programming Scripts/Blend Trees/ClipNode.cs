@@ -27,7 +27,7 @@
             };
         }
 
-        public void Update(float deltaTime)
+        public void ScriptUpdate(float deltaTime)
         {
             _controller.Update(deltaTime);
         }

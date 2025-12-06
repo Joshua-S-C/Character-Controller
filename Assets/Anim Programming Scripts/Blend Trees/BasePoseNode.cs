@@ -10,7 +10,7 @@
         }
 
       
-        public void Update(float deltaTime)
+        public void ScriptUpdate(float deltaTime)
         {
             // Do nothing
         }

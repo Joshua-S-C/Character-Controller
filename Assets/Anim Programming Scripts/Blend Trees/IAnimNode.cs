@@ -2,7 +2,7 @@
 {
     public interface IAnimNode
     {
-        void Update(float deltaTime);
+        void ScriptUpdate(float deltaTime);
         SpatialPose Evaluate(int boneCount);
         
         void Reset();
