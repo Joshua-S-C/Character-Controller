@@ -14,10 +14,10 @@
             _nodeB = nodeB;
         }
         
-        public void ScriptUpdate(float deltaTime)
+        public void Update(float deltaTime)
         {
-            _nodeA.ScriptUpdate(deltaTime);
-            _nodeB.ScriptUpdate(deltaTime);
+            _nodeA.Update(deltaTime);
+            _nodeB.Update(deltaTime);
         }
         
         public SpatialPose Evaluate(int boneCount)

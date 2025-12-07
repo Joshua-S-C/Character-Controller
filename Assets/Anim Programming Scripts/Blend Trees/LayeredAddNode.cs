@@ -29,10 +29,10 @@ namespace Nyteshade.Modules.Anim
             }
         }
         
-        public void ScriptUpdate(float deltaTime)
+        public void Update(float deltaTime)
         {
-            _baseNode.ScriptUpdate(deltaTime);
-            _additiveNode.ScriptUpdate(deltaTime);
+            _baseNode.Update(deltaTime);
+            _additiveNode.Update(deltaTime);
         }
         
         public SpatialPose Evaluate(int boneCount)

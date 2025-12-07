@@ -18,12 +18,12 @@ namespace Nyteshade.Modules.Anim
             _rootNode = rootNode;
         }
         
-        public void ScriptUpdate(float deltaTime)
+        public void Update(float deltaTime)
         {
             if (_rootNode == null)
                 return;
             
-            _rootNode.ScriptUpdate(deltaTime);
+            _rootNode.Update(deltaTime);
             SpatialPose finalPose = _rootNode.Evaluate(_Skeleton.BoneCount);
             _Skeleton.CurrentLocalSpacePose = finalPose;
         }

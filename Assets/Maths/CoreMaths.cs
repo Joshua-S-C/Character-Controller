@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
-namespace NyteshadeGodot.Modules.Maths
+namespace Nyteshade.Modules.Maths
 {
     public class CoreMaths
     {

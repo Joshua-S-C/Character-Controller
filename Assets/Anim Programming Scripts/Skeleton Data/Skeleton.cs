@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using NyteshadeGodot.Modules.Maths;
+using Nyteshade.Modules.Maths;
 
 namespace Nyteshade.Modules.Anim
 {

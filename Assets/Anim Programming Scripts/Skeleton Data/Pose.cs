@@ -1,6 +1,6 @@
 using System;
 using System.Numerics;
-using NyteshadeGodot.Modules.Maths;
+using Nyteshade.Modules.Maths;
 
 namespace Nyteshade.Modules.Anim
 {
