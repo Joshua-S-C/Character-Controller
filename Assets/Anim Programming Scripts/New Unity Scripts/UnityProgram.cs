@@ -46,7 +46,7 @@ public class UnityProgram : MonoBehaviour
 
     // Input variables
     public float _currentSpeed = 0.0f;
-    private float _turnAmount = 0.0f;
+    public float _turnAmount = 0.0f;
 
     // IK
     private IKManager _ikManager;
@@ -323,7 +323,7 @@ public class UnityProgram : MonoBehaviour
         if (kb.leftArrowKey.isPressed) t = -1f;
         else if (kb.rightArrowKey.isPressed) t = 1f;
 
-        _turnAmount = Mathf.Lerp(_turnAmount, t, dt * 7f);
+        //_turnAmount = Mathf.Lerp(_turnAmount, t, dt * 7f);
 
         // Jump (V key)
         if (kb.vKey.wasPressedThisFrame)

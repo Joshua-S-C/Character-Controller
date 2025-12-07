@@ -8,7 +8,7 @@ public class BasicPlayerController : MonoBehaviour
 {
     [SerializeField] UnityProgram animController;
     private Rigidbody rb;
-    private CapsuleCollider collider;
+    private CapsuleCollider col;
 
     private float moveSpeed;
     private Vector3 mMovement;
@@ -17,8 +17,10 @@ public class BasicPlayerController : MonoBehaviour
     [SerializeField] private float walkSpeed;
     [SerializeField] private float sprintSpeed;
     [SerializeField] private float sprintStartUp;
+    [SerializeField] private float turnStrength;
     private bool sprinting;
     private Vector3 direction;
+    private Vector3 move;
 
     [SerializeField] private float jumpHeight;
     [SerializeField] private float groundCheckHeight;
@@ -29,7 +31,7 @@ public class BasicPlayerController : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        collider = GetComponent<CapsuleCollider>();
+        col = GetComponent<CapsuleCollider>();
         mMovementAction = InputSystem.actions.FindAction("Move");
         mSprintAction = InputSystem.actions.FindAction("Sprint");
         mJump = InputSystem.actions.FindAction("Jump");
@@ -48,22 +50,32 @@ public class BasicPlayerController : MonoBehaviour
         if (mMovementAction.IsPressed())
         {
             direction = new Vector3(mMovement.x, 0, mMovement.y);
-            direction.Normalize();
-            direction *= moveSpeed;
-            rb.linearVelocity = new Vector3(direction.x, rb.linearVelocity.y, direction.z);
-            transform.forward = direction;
+            move = transform.TransformDirection(direction);
+            move.Normalize();
+            move *= moveSpeed;
+            rb.linearVelocity = new Vector3(move.x, rb.linearVelocity.y, move.z);
+
+            if(mMovement.y != -1)
+            {
+                if (direction.magnitude > 0.1f)
+                {
+                    Quaternion targetRotation = Quaternion.LookRotation(move);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * turnStrength); // Smooth rotation
+                    animController._turnAmount = mMovement.x;
+                }
+            }
         }
     }
 
     IEnumerator moveLerp(float speedToLerp)
     {
-        float t = 0;
+        float time = 0;
         float moveSpeedStart = moveSpeed;
-        while (t < 1)
+        while (time < 1)
         {
-            moveSpeed = Mathf.Lerp(moveSpeedStart, speedToLerp, t);
-            t = t + Time.deltaTime / sprintStartUp;
-            yield return null;//Stops here until right after the next update loop, then continues
+            moveSpeed = Mathf.Lerp(moveSpeedStart, speedToLerp, time);
+            time = time + Time.deltaTime / sprintStartUp;
+            yield return null; 
         }
     }
 
@@ -83,13 +95,13 @@ public class BasicPlayerController : MonoBehaviour
 
         if(mSprintAction.WasPressedThisFrame() && !sprinting) //Transition lerp for runspeed blend
         {
-            StartCoroutine(moveLerp(sprintSpeed));
             sprinting = true;
+            StartCoroutine(moveLerp(sprintSpeed));
         }
-        else if(mSprintAction.WasReleasedThisFrame() && sprinting) //Transition lerp for walkspeed blend
+        else if(!mSprintAction.IsPressed() && sprinting) //Transition lerp for walkspeed blend
         {
-            StartCoroutine(moveLerp(walkSpeed));
             sprinting = false;
+            StartCoroutine(moveLerp(walkSpeed));
         }
     }
 
@@ -97,12 +109,12 @@ public class BasicPlayerController : MonoBehaviour
     {
         yield return new WaitForSeconds(0.75f); //Adjust hitbox for jumping
         rb.AddForce(new Vector3(0, jumpHeight, 0), ForceMode.Impulse);
-        collider.height = 1f;
-        collider.center = new Vector3(0, 1.75f, 0);
+        col.height = 1f;
+        col.center = new Vector3(0, 1.75f, 0);
 
         yield return new WaitForSeconds(0.5f); //Adjust hitbox for landing
-        collider.height = 2f;
-        collider.center = new Vector3(0, 1, 0);
+        col.height = 2f;
+        col.center = new Vector3(0, 1, 0);
 
         yield return new WaitForSeconds(0.5f); //To finish the end portion of the animation
         jumping = false;
