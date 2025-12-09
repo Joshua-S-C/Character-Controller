@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using UnityEditor.Experimental.GraphView;
 
-namespace NyteshadeGodot.Modules.Maths
+namespace Nyteshade.Modules.Maths
 {
     public class Transform
     {
