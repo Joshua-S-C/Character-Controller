@@ -55,6 +55,8 @@ public class UnityProgram : MonoBehaviour
     private NumVec3 _lookTargetGui = new(0, -1.5f, 0f);
     private float _lookWeight = 1f;
 
+    private GameObject _grabIKObj;
+
     private NumVec3 _grabTargetGui = new(0.5f, 1.0f, -0.5f);
     private float _grabWeight = 0f;
     private int _chainSelection = 0;
@@ -217,6 +219,7 @@ public class UnityProgram : MonoBehaviour
         }
 
         RebuildLeftArmSolver(_chainSelection);
+        CreateGrabIKObject();
     }
 
 
@@ -265,6 +268,15 @@ public class UnityProgram : MonoBehaviour
         return list.ToArray();
     }
 
+    /// <summary>
+    /// Creates and sets an object in world to control Grab IK in editor
+    /// </summary>
+    private void CreateGrabIKObject()
+    {
+        _grabIKObj = Instantiate(new GameObject("Grab IK Locator"));
+        _grabIKObj.transform.SetParent(_rigInstance.transform);
+        _grabIKObj.transform.localPosition = UnityEngine.Vector3.zero;
+    }
 
     // ─────────────────────────────────────────────
     // Per-frame update (equivalent to _Process)
@@ -301,6 +313,16 @@ public class UnityProgram : MonoBehaviour
             // IK
             UpdateIKSolvers();
             _ikManager.ResolveSolvers();
+        }
+
+        // --- Apply Editor Grab IK ---
+
+        // Update vars if obj is moved
+        if (_grabTargetGui.X != _grabIKObj.transform.localPosition.x || _grabTargetGui.Y != _grabIKObj.transform.localPosition.y || _grabTargetGui.Z != _grabIKObj.transform.localPosition.z)
+        {
+            _grabTargetGui.X = _grabIKObj.transform.localPosition.x;
+            _grabTargetGui.Y = _grabIKObj.transform.localPosition.y;
+            _grabTargetGui.Z = _grabIKObj.transform.localPosition.z;
         }
 
         // --- Skinning → Unity bones ---
@@ -474,6 +496,8 @@ public class UnityProgram : MonoBehaviour
 
     GUILayout.Label($"Grab Z: {_grabTargetGui.Z:F2}");
     _grabTargetGui.Z = GUILayout.HorizontalSlider(_grabTargetGui.Z, -2, 2);
+
+    _grabIKObj.transform.localPosition = new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z);
 
     GUILayout.Label($"Grab Weight: {_grabWeight:F2}");
     _grabWeight = GUILayout.HorizontalSlider(_grabWeight, 0, 1);
