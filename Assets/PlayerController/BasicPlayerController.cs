@@ -211,6 +211,7 @@ public class BasicPlayerController : MonoBehaviour
         if (this.lookAtTarget == lookAtTarget)
         {
             Debug.Log("Resetting Look At");
+            lookAtTarget = null;
             animController._lookWeight = 0f;
             animController._lookAtIKObj.transform.localPosition = UnityEngine.Vector3.zero;
         }

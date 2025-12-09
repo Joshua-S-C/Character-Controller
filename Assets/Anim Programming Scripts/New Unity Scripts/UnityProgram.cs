@@ -158,7 +158,7 @@ public class UnityProgram : MonoBehaviour
 
         var idle = new ClipNode(_animLibrary["Idle"]);
         var walk = new ClipNode(_animLibrary["Walk"]);
-        var run  = new ClipNode(_animLibrary["Slow_Run"]);
+        var run = new ClipNode(_animLibrary["Slow_Run"]);
         var turnL = new ClipNode(_animLibrary["Turn_Left"]);
         var turnR = new ClipNode(_animLibrary["Turn_Right"]);
 
@@ -334,14 +334,18 @@ public class UnityProgram : MonoBehaviour
         // --- Editor IK Locators ---
 
         // Update vars if obj is moved
-        if (_grabTargetGui.X != _grabIKObj.transform.localPosition.x || _grabTargetGui.Y != _grabIKObj.transform.localPosition.y || _grabTargetGui.Z != _grabIKObj.transform.localPosition.z)
+        if (_grabTargetGui.X != _grabIKObj.transform.localPosition.x || 
+            _grabTargetGui.Y != _grabIKObj.transform.localPosition.y || 
+            _grabTargetGui.Z != _grabIKObj.transform.localPosition.z)
         {
             _grabTargetGui.X = _grabIKObj.transform.localPosition.x;
             _grabTargetGui.Y = _grabIKObj.transform.localPosition.y;
             _grabTargetGui.Z = _grabIKObj.transform.localPosition.z;
         }
-        
-        if (_lookTargetGui.X != _lookAtIKObj.transform.localPosition.x || _lookTargetGui.Y != _lookAtIKObj.transform.localPosition.y || _lookTargetGui.Z != _lookAtIKObj.transform.localPosition.z)
+
+        if (_lookTargetGui.X != _lookAtIKObj.transform.localPosition.x || 
+            _lookTargetGui.Y != _lookAtIKObj.transform.localPosition.y || 
+            _lookTargetGui.Z != _lookAtIKObj.transform.localPosition.z)
         {
             _lookTargetGui.X = _lookAtIKObj.transform.localPosition.x;
             _lookTargetGui.Y = _lookAtIKObj.transform.localPosition.y;
@@ -431,133 +435,146 @@ public class UnityProgram : MonoBehaviour
         }
     }
 
-    
+
     private Vector2 _debugScroll;
-   void OnGUI()
-{
-    if (_skeleton == null)
-        return;
-
-    // A fixed-width window area
-    Rect windowRect = new Rect(20, 20, 360, Screen.height - 40);
-    GUILayout.BeginArea(windowRect, GUI.skin.window);
-
-    // Start scroll section
-    _debugScroll = GUILayout.BeginScrollView(_debugScroll, false, true);
-
-    GUILayout.Label("Nyteshade Debug Panel", GUI.skin.box);
-
-    GUILayout.Space(10);
-    GUILayout.Label($"Bone Count: {_skeleton.BoneCount}");
-    GUILayout.Label(_isPaused ? "Paused (Press Space)" : "Playing (Press Space)");
-
-    GUILayout.Space(10);
-    GUILayout.Box("", GUILayout.Height(2));
-
-    // ----------------------------------------------------
-    // Locomotion Controls
-    // ----------------------------------------------------
-    GUILayout.Label("Locomotion (R = Walk, Shift = Run)");
-    GUILayout.Label($"Speed: {_currentSpeed:F2}");
-    _currentSpeed = GUILayout.HorizontalSlider(_currentSpeed, 0f, 5f);
-
-    GUILayout.Space(6);
-    GUILayout.Label("Turning (Left / Right Arrows)");
-    GUILayout.Label($"Turn Amount: {_turnAmount:F2}");
-    _turnAmount = GUILayout.HorizontalSlider(_turnAmount, -1f, 1f);
-
-    GUILayout.Space(10);
-    GUILayout.Box("", GUILayout.Height(2));
-
-    // ----------------------------------------------------
-    // State Info
-    // ----------------------------------------------------
-    GUILayout.Label("— STATES —");
-    GUILayout.Label("Press [V] to Jump");
-    GUILayout.Label("Press [B] to Dance");
-    GUILayout.Label("Press [R] to interrupt Dance");
-
-    string currentState = "Locomotion";
-    if (_jumpNode != null && _jumpNode.IsPlaying) currentState = "JUMPING!";
-    else if (_danceNode != null && _danceNode.IsPlaying) currentState = "DANCING!";
-
-    GUILayout.Label($"Current State: {currentState}");
-
-    GUILayout.Space(10);
-    GUILayout.Box("", GUILayout.Height(2));
-
-    // ----------------------------------------------------
-    // Look-At IK
-    // ----------------------------------------------------
-    GUILayout.Label("Look-At IK Controls (Meters)");
-
-    GUILayout.Label($"Look X: {_lookTargetGui.X:F2}");
-    _lookTargetGui.X = GUILayout.HorizontalSlider(_lookTargetGui.X, -2f, 2f);
-
-    GUILayout.Label($"Look Y: {_lookTargetGui.Y:F2}");
-    _lookTargetGui.Y = GUILayout.HorizontalSlider(_lookTargetGui.Y, -2f, 0f);
-
-    _lookAtIKObj.transform.position = new UnityEngine.Vector3(_lookTargetGui.X, _lookTargetGui.Y, _lookTargetGui.Z);
-
-
-    GUILayout.Label($"Look Weight: {_lookWeight:F2}");
-    _lookWeight = GUILayout.HorizontalSlider(_lookWeight, 0f, 1f);
-
-    GUILayout.Space(10);
-    GUILayout.Box("", GUILayout.Height(2));
-
-    // ----------------------------------------------------
-    // Grab IK
-    // ----------------------------------------------------
-    GUILayout.Label("Grab IK Controls");
-
-    GUILayout.Label("Grab Chain:");
-
-    if (GUILayout.Toggle(_chainSelection == 0, "Hand (Full Arm)"))
-        RebuildLeftArmSolver(_chainSelection = 0);
-    if (GUILayout.Toggle(_chainSelection == 1, "Forearm Only"))
-        RebuildLeftArmSolver(_chainSelection = 1);
-    if (GUILayout.Toggle(_chainSelection == 2, "Upper Arm Only"))
-        RebuildLeftArmSolver(_chainSelection = 2);
-    if (GUILayout.Toggle(_chainSelection == 3, "Wrist"))
-        RebuildLeftArmSolver(_chainSelection = 3);
-
-    GUILayout.Label($"Grab X: {_grabTargetGui.X:F2}");
-    _grabTargetGui.X = GUILayout.HorizontalSlider(_grabTargetGui.X, -2, 2);
-
-    GUILayout.Label($"Grab Y: {_grabTargetGui.Y:F2}");
-    _grabTargetGui.Y = GUILayout.HorizontalSlider(_grabTargetGui.Y, -2, 2);
-
-    GUILayout.Label($"Grab Z: {_grabTargetGui.Z:F2}");
-    _grabTargetGui.Z = GUILayout.HorizontalSlider(_grabTargetGui.Z, -2, 2);
-
-    _grabIKObj.transform.position = new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z);
-
-    GUILayout.Label($"Grab Weight: {_grabWeight:F2}");
-    _grabWeight = GUILayout.HorizontalSlider(_grabWeight, 0, 1);
-
-    GUILayout.Space(10);
-    GUILayout.Box("", GUILayout.Height(2));
-
-    // ----------------------------------------------------
-    // Bone Info
-    // ----------------------------------------------------
-    GUILayout.Label("Bone Debug (first 30 bones)");
-
-    int showCount = Mathf.Min(30, _skeleton.BoneCount);
-
-    for (int i = 0; i < showCount; i++)
+    void OnGUI()
     {
-        var bone = _skeleton.GetBone(i);
-        var p = bone.Position;
-        GUILayout.Label($"{i}: {bone.Name}");
-        GUILayout.Label($"Pos: ({p.X:F2}, {p.Y:F2}, {p.Z:F2})");
-        GUILayout.Space(3);
-    }
+        if (_skeleton == null)
+            return;
 
-    GUILayout.EndScrollView();
-    GUILayout.EndArea();
-}
+        // A fixed-width window area
+        Rect windowRect = new Rect(20, 20, 360, Screen.height - 40);
+        GUILayout.BeginArea(windowRect, GUI.skin.window);
+
+        // Start scroll section
+        _debugScroll = GUILayout.BeginScrollView(_debugScroll, false, true);
+
+        GUILayout.Label("Nyteshade Debug Panel", GUI.skin.box);
+
+        GUILayout.Space(10);
+        GUILayout.Label($"Bone Count: {_skeleton.BoneCount}");
+        GUILayout.Label(_isPaused ? "Paused (Press Space)" : "Playing (Press Space)");
+
+        GUILayout.Space(10);
+        GUILayout.Box("", GUILayout.Height(2));
+
+        // ----------------------------------------------------
+        // Locomotion Controls
+        // ----------------------------------------------------
+        GUILayout.Label("Locomotion (R = Walk, Shift = Run)");
+        GUILayout.Label($"Speed: {_currentSpeed:F2}");
+        _currentSpeed = GUILayout.HorizontalSlider(_currentSpeed, 0f, 5f);
+
+        GUILayout.Space(6);
+        GUILayout.Label("Turning (Left / Right Arrows)");
+        GUILayout.Label($"Turn Amount: {_turnAmount:F2}");
+        _turnAmount = GUILayout.HorizontalSlider(_turnAmount, -1f, 1f);
+
+        GUILayout.Space(10);
+        GUILayout.Box("", GUILayout.Height(2));
+
+        // ----------------------------------------------------
+        // State Info
+        // ----------------------------------------------------
+        GUILayout.Label("— STATES —");
+        GUILayout.Label("Press [V] to Jump");
+        GUILayout.Label("Press [B] to Dance");
+        GUILayout.Label("Press [R] to interrupt Dance");
+
+        string currentState = "Locomotion";
+        if (_jumpNode != null && _jumpNode.IsPlaying) currentState = "JUMPING!";
+        else if (_danceNode != null && _danceNode.IsPlaying) currentState = "DANCING!";
+
+        GUILayout.Label($"Current State: {currentState}");
+
+        GUILayout.Space(10);
+        GUILayout.Box("", GUILayout.Height(2));
+
+        // ----------------------------------------------------
+        // Look-At IK
+        // ----------------------------------------------------
+        GUILayout.Label("Look-At IK Controls (Meters)");
+
+        float prevX = _lookTargetGui.X;
+        float prevY = _lookTargetGui.Y;
+
+        GUILayout.Label($"Look X: {_lookTargetGui.X:F2}");
+        _lookTargetGui.X = GUILayout.HorizontalSlider(_lookTargetGui.X, -2f, 2f);
+
+        GUILayout.Label($"Look Y: {_lookTargetGui.Y:F2}");
+        _lookTargetGui.Y = GUILayout.HorizontalSlider(_lookTargetGui.Y, -2f, 0f);
+
+        if (prevX != _lookTargetGui.X || prevY != _lookTargetGui.Y)
+        {
+            _lookAtIKObj.transform.position = new UnityEngine.Vector3(_lookTargetGui.X, _lookTargetGui.Y, _lookTargetGui.Z);
+        }
+
+        GUILayout.Label($"Look Weight: {_lookWeight:F2}");
+        _lookWeight = GUILayout.HorizontalSlider(_lookWeight, 0f, 1f);
+
+        GUILayout.Space(10);
+        GUILayout.Box("", GUILayout.Height(2));
+
+        // ----------------------------------------------------
+        // Grab IK
+        // ----------------------------------------------------
+        GUILayout.Label("Grab IK Controls");
+
+        GUILayout.Label("Grab Chain:");
+
+        if (GUILayout.Toggle(_chainSelection == 0, "Hand (Full Arm)"))
+            RebuildLeftArmSolver(_chainSelection = 0);
+        if (GUILayout.Toggle(_chainSelection == 1, "Forearm Only"))
+            RebuildLeftArmSolver(_chainSelection = 1);
+        if (GUILayout.Toggle(_chainSelection == 2, "Upper Arm Only"))
+            RebuildLeftArmSolver(_chainSelection = 2);
+        if (GUILayout.Toggle(_chainSelection == 3, "Wrist"))
+            RebuildLeftArmSolver(_chainSelection = 3);
+
+        prevX = _grabTargetGui.X;
+        prevY = _grabTargetGui.Y;
+        float prevZ = _grabTargetGui.Z;
+
+        GUILayout.Label($"Grab X: {_grabTargetGui.X:F2}");
+        _grabTargetGui.X = GUILayout.HorizontalSlider(_grabTargetGui.X, -2, 2);
+
+        GUILayout.Label($"Grab Y: {_grabTargetGui.Y:F2}");
+        _grabTargetGui.Y = GUILayout.HorizontalSlider(_grabTargetGui.Y, -2, 2);
+
+        GUILayout.Label($"Grab Z: {_grabTargetGui.Z:F2}");
+        _grabTargetGui.Z = GUILayout.HorizontalSlider(_grabTargetGui.Z, -2, 2);
+
+        if (prevX != _grabTargetGui.X || prevY != _grabTargetGui.Y || prevZ != _grabTargetGui.Z)
+        {
+            _grabIKObj.transform.position = new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z);
+        }
+
+
+        GUILayout.Label($"Grab Weight: {_grabWeight:F2}");
+        _grabWeight = GUILayout.HorizontalSlider(_grabWeight, 0, 1);
+
+        GUILayout.Space(10);
+        GUILayout.Box("", GUILayout.Height(2));
+
+        // ----------------------------------------------------
+        // Bone Info
+        // ----------------------------------------------------
+        GUILayout.Label("Bone Debug (first 30 bones)");
+
+        int showCount = Mathf.Min(30, _skeleton.BoneCount);
+
+        for (int i = 0; i < showCount; i++)
+        {
+            var bone = _skeleton.GetBone(i);
+            var p = bone.Position;
+            GUILayout.Label($"{i}: {bone.Name}");
+            GUILayout.Label($"Pos: ({p.X:F2}, {p.Y:F2}, {p.Z:F2})");
+            GUILayout.Space(3);
+        }
+
+        GUILayout.EndScrollView();
+        GUILayout.EndArea();
+    }
 
 
 }

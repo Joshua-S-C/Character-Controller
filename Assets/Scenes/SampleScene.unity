@@ -1410,7 +1410,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: af85fb1cfb4d3bd44ba01ed2084db30c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LookAtTarget
-  minDist: 3
+  minDist: 2
   maxDist: 5
 --- !u!135 &1411555880
 SphereCollider:
