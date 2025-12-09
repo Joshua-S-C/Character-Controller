@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
@@ -25,7 +27,12 @@ public class BasicPlayerController : MonoBehaviour
     [SerializeField] private float jumpHeight;
     [SerializeField] private float groundCheckHeight;
     private InputAction mJump;
+    private InputAction mInteract;
     private bool jumping;
+
+    // Box interation
+    [SerializeField] HoldController holdController;
+    Holdable heldItem = null;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -35,6 +42,8 @@ public class BasicPlayerController : MonoBehaviour
         mMovementAction = InputSystem.actions.FindAction("Move");
         mSprintAction = InputSystem.actions.FindAction("Sprint");
         mJump = InputSystem.actions.FindAction("Jump");
+        mInteract = InputSystem.actions.FindAction("Interact");
+        holdController = GetComponentInChildren<HoldController>();
         moveSpeed = walkSpeed;
     }
 
@@ -65,6 +74,8 @@ public class BasicPlayerController : MonoBehaviour
                 }
             }
         }
+
+
     }
 
     IEnumerator moveLerp(float speedToLerp)
@@ -92,6 +103,9 @@ public class BasicPlayerController : MonoBehaviour
                 jumping = true;
             }
         }
+
+        if (mInteract.WasPressedThisFrame())
+            TryInteract();
 
         if(mSprintAction.WasPressedThisFrame() && !sprinting) //Transition lerp for runspeed blend
         {
@@ -124,4 +138,49 @@ public class BasicPlayerController : MonoBehaviour
     {
         return Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.25f, transform.position.z), -Vector3.up, groundCheckHeight);
     }
+
+    bool TryInteract()
+    {
+        //Debug.Log($"Interact pressed {holdController.holdableInCol.name}");
+
+        if (holdController.holdableInCol)
+            PickUpObject(holdController.holdableInCol);
+        else
+            PutDownObject();
+
+        return true;
+    }
+    void PickUpObject(Holdable obj)
+    {
+        Debug.Log($"Picking up {obj.name}");
+
+        heldItem = obj;
+
+        obj.isHeld = true;
+
+        holdController.holdableInCol = null;
+
+        // Lerp hand locators to obj / teleport them then lerp weight
+        //animController._grabIKObj.transform.parent = obj.locL;
+        obj._pLocL = animController._grabIKObj;
+
+        // Then attach child box to IK position
+        obj.transform.parent = this.transform;
+
+        // Also make it so IK locators can toggle local global
+    }
+
+    private void PutDownObject()
+    {
+        Debug.Log($"Putting down {heldItem.name}");
+
+        heldItem.isHeld = false;
+
+        heldItem.transform.parent = null;
+        heldItem._pLocL = null;
+
+        heldItem = null;
+    }
+
+
 }

@@ -56,9 +56,8 @@ public class UnityProgram : MonoBehaviour
     private float _lookWeight = 1f;
 
     [SerializeField] bool _showIKDebugLines = true;
-    private GameObject _grabIKObj, _lookAtIKObj;
-    private GameObject _grabIKBase, _lookAtIKBase;
-
+    public GameObject _grabIKObj, _lookAtIKObj;
+    public GameObject _grabIKBase, _lookAtIKBase;
 
     private NumVec3 _grabTargetGui = new(0.5f, 1.0f, -0.5f);
     private float _grabWeight = 1f; // Temp changed to 1 for testing
@@ -282,6 +281,9 @@ public class UnityProgram : MonoBehaviour
         _lookAtIKObj = new GameObject("Look At IK Locator");
         _lookAtIKObj.transform.position = new UnityEngine.Vector3(0, 1.6f, 0.5f);
 
+        _grabIKObj.transform.parent = parentController;
+        _lookAtIKObj.transform.parent = parentController;
+
         _lookAtIKBase = GameObject.Find("mixamorig:Head");
         _grabIKBase = GameObject.Find("mixamorig:LeftShoulder");
     }
@@ -328,28 +330,29 @@ public class UnityProgram : MonoBehaviour
         // Update vars if obj is moved
         if (_grabTargetGui.X != _grabIKObj.transform.localPosition.x || _grabTargetGui.Y != _grabIKObj.transform.localPosition.y || _grabTargetGui.Z != _grabIKObj.transform.localPosition.z)
         {
-            _grabTargetGui.X = _grabIKObj.transform.position.x;
-            _grabTargetGui.Y = _grabIKObj.transform.position.y;
-            _grabTargetGui.Z = _grabIKObj.transform.position.z;
+            _grabTargetGui.X = _grabIKObj.transform.localPosition.x;
+            _grabTargetGui.Y = _grabIKObj.transform.localPosition.y;
+            _grabTargetGui.Z = _grabIKObj.transform.localPosition.z;
         }
         
         if (_lookTargetGui.X != _lookAtIKObj.transform.localPosition.x || _lookTargetGui.Y != _lookAtIKObj.transform.localPosition.y || _lookTargetGui.Z != _lookAtIKObj.transform.localPosition.z)
         {
-            _lookTargetGui.X = _lookAtIKObj.transform.position.x;
-            _lookTargetGui.Y = _lookAtIKObj.transform.position.y;
-            _lookTargetGui.Z = _lookAtIKObj.transform.position.z;
+            _lookTargetGui.X = _lookAtIKObj.transform.localPosition.x;
+            _lookTargetGui.Y = _lookAtIKObj.transform.localPosition.y;
+            _lookTargetGui.Z = _lookAtIKObj.transform.localPosition.z;
         }
 
         // Debug lines
         if (_showIKDebugLines)
         {
-            Debug.DrawLine(_grabIKBase.transform.position, new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z), Color.blue);
-            Debug.DrawLine(_lookAtIKBase.transform.position, new UnityEngine.Vector3(_lookTargetGui.X, _lookTargetGui.Y, _lookTargetGui.Z), Color.blue);
+            Debug.DrawLine(_grabIKBase.transform.position, _grabIKObj.transform.position, Color.blue);
+            Debug.DrawLine(_lookAtIKBase.transform.position, _lookAtIKObj.transform.position, Color.blue);
         }
 
         // --- Skinning → Unity bones ---
         UnityBridge.ApplyBoneOverridesToUnity(_smr, _skeleton);
     }
+
     private void HandleInput(float dt)
     {
         var kb = Keyboard.current;
@@ -408,7 +411,7 @@ public class UnityProgram : MonoBehaviour
         if (_lookSolver != null)
         {
             var gui = _lookTargetGui;
-            var cm = new NumVec3(gui.X - _rigInstance.transform.position.x, gui.Y - _rigInstance.transform.position.y, gui.Z - _rigInstance.transform.position.z);
+            var cm = new NumVec3(gui.X, gui.Y, gui.Z);
             _lookSolver.SetTarget(cm);
             _lookSolver.Weight = _lookWeight;
         }
@@ -416,7 +419,7 @@ public class UnityProgram : MonoBehaviour
         if (_leftArmSolver != null)
         {
             var gui = _grabTargetGui;
-            var cm = new NumVec3(gui.X - _rigInstance.transform.position.x, gui.Y - _rigInstance.transform.position.y, gui.Z - _rigInstance.transform.position.z);
+            var cm = new NumVec3(gui.X, gui.Y, gui.Z);
             _leftArmSolver.SetTarget(cm);
             _leftArmSolver.Weight = _grabWeight;
         }
@@ -488,7 +491,7 @@ public class UnityProgram : MonoBehaviour
     GUILayout.Label($"Look Y: {_lookTargetGui.Y:F2}");
     _lookTargetGui.Y = GUILayout.HorizontalSlider(_lookTargetGui.Y, -2f, 0f);
 
-    _lookAtIKObj.transform.position = new UnityEngine.Vector3(_lookTargetGui.X, _lookTargetGui.Y, _lookTargetGui.Z);
+    //_lookAtIKObj.transform.position = new UnityEngine.Vector3(_lookTargetGui.X, _lookTargetGui.Y, _lookTargetGui.Z);
 
 
     GUILayout.Label($"Look Weight: {_lookWeight:F2}");
@@ -522,7 +525,7 @@ public class UnityProgram : MonoBehaviour
     GUILayout.Label($"Grab Z: {_grabTargetGui.Z:F2}");
     _grabTargetGui.Z = GUILayout.HorizontalSlider(_grabTargetGui.Z, -2, 2);
 
-    _grabIKObj.transform.position = new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z);
+    //_grabIKObj.transform.position = new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z);
 
     GUILayout.Label($"Grab Weight: {_grabWeight:F2}");
     _grabWeight = GUILayout.HorizontalSlider(_grabWeight, 0, 1);
