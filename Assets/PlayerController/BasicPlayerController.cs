@@ -34,6 +34,9 @@ public class BasicPlayerController : MonoBehaviour
     [SerializeField] HoldController holdController;
     Holdable heldItem = null;
 
+    // Look At Location
+    public LookAtTarget lookAtTarget = null;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -52,6 +55,13 @@ public class BasicPlayerController : MonoBehaviour
     {
         GetInputs();
         Debug.DrawRay(transform.position, -Vector3.up * groundCheckHeight, Color.red);
+
+        // Update LookAt weight
+        if (lookAtTarget != null)
+        {
+            animController._lookAtIKObj.transform.position = lookAtTarget.gameObject.transform.position;
+            animController._lookWeight = 1 - Mathf.InverseLerp(lookAtTarget.minDist, lookAtTarget.maxDist, Vector3.Distance(transform.position, lookAtTarget.transform.position));
+        }
     }
 
     private void FixedUpdate()
@@ -74,8 +84,6 @@ public class BasicPlayerController : MonoBehaviour
                 }
             }
         }
-
-
     }
 
     IEnumerator moveLerp(float speedToLerp)
@@ -150,24 +158,20 @@ public class BasicPlayerController : MonoBehaviour
 
         return true;
     }
+
     void PickUpObject(Holdable obj)
     {
-        Debug.Log($"Picking up {obj.name}");
-
-        heldItem = obj;
-
-        obj.isHeld = true;
-
+        //Debug.Log($"Picking up {obj.name}");
         holdController.holdableInCol = null;
 
+        heldItem = obj;
+        heldItem.isHeld = true;
+
         // Lerp hand locators to obj / teleport them then lerp weight
-        //animController._grabIKObj.transform.parent = obj.locL;
-        obj._pLocL = animController._grabIKObj;
+        heldItem._pLocL = animController._grabIKObj;
+        heldItem.transform.parent = this.transform;
 
-        // Then attach child box to IK position
-        obj.transform.parent = this.transform;
-
-        // Also make it so IK locators can toggle local global
+        animController._grabWeight = 1;
     }
 
     private void PutDownObject()
@@ -175,12 +179,40 @@ public class BasicPlayerController : MonoBehaviour
         Debug.Log($"Putting down {heldItem.name}");
 
         heldItem.isHeld = false;
-
         heldItem.transform.parent = null;
         heldItem._pLocL = null;
-
         heldItem = null;
+
+        animController._grabWeight = 0;
     }
 
+    public void TryLookAt(LookAtTarget newLookAtTarget)
+    {
+        if (lookAtTarget != null)
+        {
+            float distToOld = Vector3.Distance(transform.position, lookAtTarget.transform.position);
+            float distToNew = Vector3.Distance(transform.position, newLookAtTarget.transform.position);
 
+            if (distToNew < distToOld)
+            {
+                lookAtTarget = newLookAtTarget;
+                animController._lookAtIKObj.transform.position = lookAtTarget.gameObject.transform.position;
+            }
+
+            return;
+        }
+
+        lookAtTarget = newLookAtTarget;
+        animController._lookAtIKObj.transform.position = lookAtTarget.gameObject.transform.position;
+    }
+
+    internal void EndLookAt(LookAtTarget lookAtTarget)
+    {
+        if (this.lookAtTarget == lookAtTarget)
+        {
+            Debug.Log("Resetting Look At");
+            animController._lookWeight = 0f;
+            animController._lookAtIKObj.transform.localPosition = UnityEngine.Vector3.zero;
+        }
+    }
 }

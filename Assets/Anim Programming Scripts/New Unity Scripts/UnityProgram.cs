@@ -1,16 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.Numerics;
-using UnityEngine;
-using UnityEngine.InputSystem;
-
-
 using Nyteshade.Modules.Anim;
 using Nyteshade.Modules.Anim.Unity_Specific;
 using Nyteshade.Modules.Maths;
+using System;
+using System.Collections.Generic;
+using System.Numerics;
+using Unity.VisualScripting;
+using UnityEngine;
+using UnityEngine.InputSystem;
 using AnimationClip = Nyteshade.Modules.Anim.AnimationClip;
-using NumVec3 = System.Numerics.Vector3;
 using NumQuat = System.Numerics.Quaternion;
+using NumVec3 = System.Numerics.Vector3;
 using UnityVec3 = UnityEngine.Vector3;
 using Vector2 = UnityEngine.Vector2;
 
@@ -53,14 +52,14 @@ public class UnityProgram : MonoBehaviour
     private LookAtIKSolver _lookSolver;
     private CCDIK_Solver _leftArmSolver;
     private NumVec3 _lookTargetGui = new(0, -1.5f, 0f);
-    private float _lookWeight = 1f;
+    public float _lookWeight = 1f;
 
     [SerializeField] bool _showIKDebugLines = true;
     public GameObject _grabIKObj, _lookAtIKObj;
     public GameObject _grabIKBase, _lookAtIKBase;
 
     private NumVec3 _grabTargetGui = new(0.5f, 1.0f, -0.5f);
-    private float _grabWeight = 1f; // Temp changed to 1 for testing
+    public float _grabWeight = 0f;
     private int _chainSelection = 0;
 
     //Controller
@@ -284,8 +283,15 @@ public class UnityProgram : MonoBehaviour
         _grabIKObj.transform.parent = parentController;
         _lookAtIKObj.transform.parent = parentController;
 
-        _lookAtIKBase = GameObject.Find("mixamorig:Head");
-        _grabIKBase = GameObject.Find("mixamorig:LeftShoulder");
+        // This is dumb but Find isn't working
+        UnityEngine.Transform hips = _rigInstance.transform.GetChild(2);
+        UnityEngine.Transform grab = hips.GetChild(2).GetChild(0).GetChild(0).GetChild(0).GetChild(0).GetChild(0).GetChild(0);
+        UnityEngine.Transform look = hips.GetChild(2).GetChild(0).GetChild(0).GetChild(1).GetChild(0);
+
+        Debug.Log($"Rig instance {_rigInstance.name}, Grab : {grab}, Look : {look}");
+
+        _lookAtIKBase = look.gameObject;
+        _grabIKBase = grab.gameObject;
     }
 
     // ─────────────────────────────────────────────
@@ -491,7 +497,7 @@ public class UnityProgram : MonoBehaviour
     GUILayout.Label($"Look Y: {_lookTargetGui.Y:F2}");
     _lookTargetGui.Y = GUILayout.HorizontalSlider(_lookTargetGui.Y, -2f, 0f);
 
-    //_lookAtIKObj.transform.position = new UnityEngine.Vector3(_lookTargetGui.X, _lookTargetGui.Y, _lookTargetGui.Z);
+    _lookAtIKObj.transform.position = new UnityEngine.Vector3(_lookTargetGui.X, _lookTargetGui.Y, _lookTargetGui.Z);
 
 
     GUILayout.Label($"Look Weight: {_lookWeight:F2}");
@@ -525,7 +531,7 @@ public class UnityProgram : MonoBehaviour
     GUILayout.Label($"Grab Z: {_grabTargetGui.Z:F2}");
     _grabTargetGui.Z = GUILayout.HorizontalSlider(_grabTargetGui.Z, -2, 2);
 
-    //_grabIKObj.transform.position = new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z);
+    _grabIKObj.transform.position = new UnityEngine.Vector3(_grabTargetGui.X, _grabTargetGui.Y, _grabTargetGui.Z);
 
     GUILayout.Label($"Grab Weight: {_grabWeight:F2}");
     _grabWeight = GUILayout.HorizontalSlider(_grabWeight, 0, 1);
